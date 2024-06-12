@@ -54,6 +54,17 @@ pub mod versioned {
 		crate::pallet::Pallet<T>,
 		<T as frame_system::Config>::DbWeight,
 	>;
+
+	/// On this version of the code migration to V7 will not succeed unless migration to v8 was done
+	/// before.
+	pub type V6ToV8<T> =  frame_support::migrations::VersionedMigration<
+		6,
+		8,
+		(v8::VersionUncheckedMigrateV7ToV8<T>, v7::VersionUncheckedMigrateV6ToV7<T>),
+		crate::pallet::Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+
 }
 
 pub mod v8 {
