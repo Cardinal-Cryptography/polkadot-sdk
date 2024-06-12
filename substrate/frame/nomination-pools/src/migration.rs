@@ -56,7 +56,7 @@ pub mod versioned {
 	>;
 
 	/// On this version of the code migration to V7 will not succeed unless migration to v8 was done
-	/// before.
+	/// before. We can change the order of migrations since they are independent of each other.
 	pub type V6ToV8<T> =  frame_support::migrations::VersionedMigration<
 		6,
 		8,
@@ -79,6 +79,7 @@ pub mod v8 {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
+			// We can change the order of migrations since they are independent of each other.
 			let w1 = VersionUncheckedMigrateV7ToV8::<T>::on_runtime_upgrade();
 			let w2 = v7::VersionUncheckedMigrateV6ToV7::<T>::on_runtime_upgrade();
 
