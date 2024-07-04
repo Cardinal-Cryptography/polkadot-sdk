@@ -70,6 +70,13 @@ pub struct Schedule<T: Config> {
 	pub host_fn_weights: HostFnWeights<T>,
 }
 
+impl<T: Config> Schedule<T> {
+	/// Returns the reference time per engine fuel.
+	pub fn ref_time_by_fuel(&self) -> u64 {
+		self.instruction_weights.base as u64
+	}
+}
+
 /// Describes the upper limits on various metrics.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Encode, Decode, PartialEq, Eq, RuntimeDebug, TypeInfo)]
