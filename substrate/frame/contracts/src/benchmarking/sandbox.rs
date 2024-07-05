@@ -24,6 +24,9 @@ use crate::wasm::{
 };
 use sp_core::Get;
 use wasmi::{errors::LinkerError, Func, Linker, StackLimits, Store};
+use wasmi::CompilationMode;
+use crate::wasm::LoadingMode;
+
 
 /// Minimal execution environment without any imported functions.
 pub struct Sandbox {
@@ -50,12 +53,14 @@ impl<T: Config> From<&WasmModule<T>> for Sandbox {
 			StackLimits::default(),
 			// We are testing with an empty environment anyways
 			AllowDeprecatedInterface::No,
+			LoadingMode::Checked,
+			CompilationMode::Eager,
 		)
 		.expect("Failed to create benchmarking Sandbox instance");
 
 		// Set fuel for wasmi execution.
 		store
-			.add_fuel(u64::MAX)
+			.set_fuel(u64::MAX)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
 		let entry_point = instance

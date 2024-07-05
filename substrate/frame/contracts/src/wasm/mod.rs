@@ -52,7 +52,7 @@ use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
 use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
-use crate::wasm::prepare::LoadingMode;
+pub use crate::wasm::prepare::LoadingMode;
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 
