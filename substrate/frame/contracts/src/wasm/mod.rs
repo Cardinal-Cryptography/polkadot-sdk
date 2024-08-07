@@ -51,7 +51,8 @@ use frame_support::{
 use sp_core::Get;
 use sp_runtime::{DispatchError, RuntimeDebug};
 use sp_std::prelude::*;
-use wasmi::{InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
+use wasmi::{CompilationMode, InstancePre, Linker, Memory, MemoryType, StackLimits, Store};
+pub use crate::wasm::prepare::LoadingMode;
 
 const BYTES_PER_PAGE: usize = 64 * 1024;
 
@@ -136,11 +137,6 @@ struct CodeLoadToken(u32);
 
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
-		// When loading the contract, we already covered the general costs of
-		// calling the storage but still need to account for the actual size of the
-		// contract code. This is why we subtract `T::*::(0)`. We need to do this at this
-		// point because when charging the general weight for calling the contract we don't know the
-		// size of the contract.
 		T::WeightInfo::call_with_code_per_byte(self.0)
 			.saturating_sub(T::WeightInfo::call_with_code_per_byte(0))
 	}
@@ -204,11 +200,13 @@ impl<T: Config> WasmBlob<T> {
 		determinism: Determinism,
 		stack_limits: StackLimits,
 		allow_deprecated: AllowDeprecatedInterface,
+		loading_mode: LoadingMode,
+		compilation_mode: CompilationMode,
 	) -> Result<(Store<H>, Memory, InstancePre), &'static str>
 	where
 		E: Environment<H>,
 	{
-		let contract = LoadedModule::new::<T>(&code, determinism, Some(stack_limits))?;
+		let contract = LoadedModule::new::<T>(&code, determinism, Some(stack_limits), loading_mode, compilation_mode)?;
 		let mut store = Store::new(&contract.engine, host_state);
 		let mut linker = Linker::new(&contract.engine);
 		E::define(
@@ -360,6 +358,8 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 				ExportedFunction::Call => AllowDeprecatedInterface::Yes,
 				ExportedFunction::Constructor => AllowDeprecatedInterface::No,
 			},
+			LoadingMode::Unchecked,
+			CompilationMode::Lazy,
 		)
 		.map_err(|msg| {
 			log::debug!(target: LOG_TARGET, "failed to instantiate code to wasmi: {}", msg);
@@ -375,18 +375,18 @@ impl<T: Config> Executable<T> for WasmBlob<T> {
 			.gas_meter_mut()
 			.gas_left()
 			.ref_time()
-			.checked_div(T::Schedule::get().instruction_weights.base as u64)
+			.checked_div(T::Schedule::get().ref_time_by_fuel())
 			.ok_or(Error::<T>::InvalidSchedule)?;
 		store
-			.add_fuel(fuel_limit)
+			.set_fuel(fuel_limit)
 			.expect("We've set up engine to fuel consuming mode; qed");
 
 		// Sync this frame's gas meter with the engine's one.
 		let process_result = |mut store: Store<Runtime<E>>, result| {
-			let engine_consumed_total =
-				store.fuel_consumed().expect("Fuel metering is enabled; qed");
+			let engine_fuel =
+				store.get_fuel().expect("Fuel metering is enabled; qed");
 			let gas_meter = store.data_mut().ext().gas_meter_mut();
-			let _ = gas_meter.sync_from_executor(engine_consumed_total)?;
+			let _ = gas_meter.sync_from_executor(engine_fuel)?;
 			store.into_data().to_execution_result(result)
 		};
 
